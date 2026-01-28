@@ -12,6 +12,7 @@ import Models from "./pages/Models";
 import Certificates from "./pages/Certificates";
 import Reports from "./pages/Reports";
 import Scheduler from "./pages/Scheduler";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -77,6 +78,14 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <Scheduler />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/settings"
+      element={
+        <ProtectedRoute>
+          <Settings />
         </ProtectedRoute>
       }
     />
