@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Leaf, CheckCircle, Download, Share2, Award } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { generateCertificatePDF } from '@/lib/pdfGenerator';
 
 interface Certificate {
   id: string;
@@ -128,30 +129,16 @@ const Certificates = () => {
   const handleDownloadPDF = () => {
     if (!selectedCertificate) return;
     
-    // Create a simple PDF content
-    const content = `
-GREEN AI PROVENANCE CERTIFICATE
-
-Model: ${selectedCertificate.model_name}
-Training Date: ${new Date(selectedCertificate.training_date).toLocaleDateString()}
-Total Emissions: ${selectedCertificate.total_co2_kg} t CO₂e
-Renewable Energy: ${selectedCertificate.renewable_percentage}%
-Certificate Hash: ${selectedCertificate.certificate_hash}
-Verification Status: ${selectedCertificate.is_verified ? 'Verified' : 'Pending'}
-
-This certificate confirms that the AI model listed above was trained
-following the environmental standards of the EcoCompute Protocol.
-    `;
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `certificate-${selectedCertificate.certificate_hash.slice(0, 8)}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    generateCertificatePDF({
+      modelName: selectedCertificate.model_name,
+      trainingDate: selectedCertificate.training_date,
+      totalCO2: selectedCertificate.total_co2_kg,
+      renewablePercent: selectedCertificate.renewable_percentage,
+      certificateHash: selectedCertificate.certificate_hash,
+      isVerified: selectedCertificate.is_verified || false,
+    });
     
-    toast.success('Certificate downloaded');
+    toast.success('Certificate PDF downloaded');
   };
 
   const handleShareCertificate = async () => {

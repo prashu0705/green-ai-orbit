@@ -20,6 +20,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { generatePerformanceReportPDF } from '@/lib/pdfGenerator';
 
 interface ReportStats {
   co2Savings: number;
@@ -163,34 +164,15 @@ const Reports = () => {
   };
 
   const handleExportPDF = () => {
-    const content = `
-ECOCOMPUTE PERFORMANCE REPORT
-Generated: ${new Date().toLocaleDateString()}
-
-EXECUTIVE SUMMARY
------------------
-CO₂ Savings: ${stats.co2Savings}t
-Efficiency Gain: +${stats.efficiencyGain}%
-Renewable Energy: ${stats.renewablePercent}%
-
-EMISSIONS DATA
---------------
-${emissionData.map(d => `${d.month}: Current ${d.current}t | Baseline ${d.baseline}t`).join('\n')}
-
-AI INSIGHTS
------------
-${insights.map(i => `[${i.type.toUpperCase()}] ${i.title}: ${i.description} ${i.highlight || ''}`).join('\n')}
-    `;
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'performance-report.txt';
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    toast.success('Report exported successfully');
+    generatePerformanceReportPDF({
+      co2Savings: stats.co2Savings,
+      efficiencyGain: stats.efficiencyGain,
+      renewablePercent: stats.renewablePercent,
+      emissionData,
+      insights,
+      generatedDate: new Date().toLocaleDateString(),
+    });
+    toast.success('PDF report exported successfully');
   };
 
   const getInsightIcon = (type: string) => {
