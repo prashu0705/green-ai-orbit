@@ -44,39 +44,47 @@ const Login = () => {
     <div className="min-h-screen flex">
       {/* Left Panel - Hero */}
       <div className="hidden lg:flex lg:w-1/2 gradient-eco relative overflow-hidden">
+        {/* Decorative vertical bar on left edge */}
+        <div className="absolute left-0 top-0 bottom-0 w-2 bg-primary/50" />
+        
         <div className="absolute inset-0 opacity-20">
           <div className="absolute top-20 left-20 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute bottom-40 right-10 w-96 h-96 bg-white/5 rounded-full blur-3xl" />
         </div>
         
-        <div className="relative z-10 flex flex-col justify-between p-12 text-white">
+        <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
+          {/* Copyright at bottom left */}
           <div className="flex items-center gap-3 opacity-60">
-            <Leaf className="h-5 w-5" />
             <span className="text-sm">© 2024 EcoCompute Visuals</span>
           </div>
           
-          <div className="space-y-6">
+          {/* Center content */}
+          <div className="space-y-6 flex-1 flex flex-col justify-center">
             {/* Animated Elements */}
-            <div className="relative">
-              <div className="flex items-center gap-2 absolute -top-16 left-24 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 animate-float">
+            <div className="relative h-40 flex items-center justify-center">
+              {/* Saving Energy badge - left side */}
+              <div className="flex items-center gap-2 absolute top-0 left-4 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 animate-float">
                 <Zap className="h-4 w-4" />
                 <span className="text-sm">Saving Energy...</span>
               </div>
               
-              <div className="relative mx-auto w-32 h-32 flex items-center justify-center">
+              {/* Central map pin icon */}
+              <div className="relative w-28 h-28 flex items-center justify-center">
                 <div className="absolute inset-0 rounded-full bg-white/10 animate-pulse-eco" />
-                <div className="absolute inset-4 rounded-full bg-white/20 flex items-center justify-center">
+                <div className="absolute inset-3 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
                   <MapPin className="h-10 w-10" />
                 </div>
               </div>
               
-              <div className="flex items-center gap-2 absolute -top-8 right-20 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 animate-float" style={{ animationDelay: '0.5s' }}>
-                <div className="w-2 h-2 rounded-full bg-green-400" />
+              {/* Optimized badge - right side */}
+              <div className="flex items-center gap-2 absolute top-4 right-4 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 animate-float" style={{ animationDelay: '0.5s' }}>
+                <div className="w-2 h-2 rounded-full bg-eco-green" />
                 <span className="text-sm">Optimized</span>
               </div>
             </div>
             
-            <div className="space-y-4 mt-20">
+            {/* Text content */}
+            <div className="space-y-4 mt-8">
               <h1 className="text-4xl font-bold leading-tight">
                 Sustainable Computing<br />Power.
               </h1>
