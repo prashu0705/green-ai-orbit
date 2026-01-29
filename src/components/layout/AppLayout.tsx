@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Leaf, LayoutDashboard, Cpu, Award, FileText, Calendar, LogOut, User, Settings } from 'lucide-react';
+import { Leaf, LayoutDashboard, Cpu, Award, FileText, Calendar, LogOut, User, Settings, GitCompare } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -20,6 +21,7 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/scheduler', label: 'Scheduler', icon: Calendar },
   { path: '/models', label: 'Models', icon: Cpu },
+  { path: '/comparison', label: 'Compare', icon: GitCompare },
   { path: '/certificates', label: 'Certificates', icon: Award },
   { path: '/reports', label: 'Reports', icon: FileText },
 ];
@@ -75,8 +77,10 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
             })}
           </nav>
 
-          {/* User Menu */}
-          <DropdownMenu>
+          {/* Theme Toggle & User Menu */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-3 h-auto py-2">
                 <div className="hidden md:block text-right">
@@ -107,6 +111,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
       </header>
 
