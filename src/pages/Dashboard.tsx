@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRealtimeModels } from '@/hooks/useRealtimeModels';
-import { useRealtimeEnergySources } from '@/hooks/useRealtimeEnergySources';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   TrendingDown, 
   Leaf, 
   Zap, 
+  Sun, 
+  Wind, 
+  Building2,
   Globe,
   Clock,
   Gauge,
@@ -24,39 +27,74 @@ interface DashboardStats {
 }
 
 const Dashboard = () => {
-  const { models, loading: modelsLoading } = useRealtimeModels();
-  const { formattedSources, renewablePercentage, loading: sourcesLoading } = useRealtimeEnergySources();
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
-    totalCO2: 0,
-    co2Change: 0,
+    totalCO2: 1.2,
+    co2Change: -12,
     targetCO2: 1.0,
-    efficiencyScore: 0,
-    renewablePercentage: 0,
-    energySources: [],
+    efficiencyScore: 94,
+    renewablePercentage: 75,
+    energySources: [
+      { name: 'Solar Farm A', value: 30, color: '#10b981' },
+      { name: 'Wind Offshore', value: 45, color: '#14b8a6' },
+      { name: 'Public Grid', value: 25, color: '#6b7280' },
+    ],
   });
+  const [loading, setLoading] = useState(true);
 
-  // Calculate stats from realtime models
   useEffect(() => {
-    if (models.length > 0) {
-      const totalCO2 = models.reduce((sum, m) => sum + Number(m.co2_emissions || 0), 0);
-      const avgEfficiency = models.reduce((sum, m) => sum + Number(m.efficiency_score || 0), 0) / models.length;
-      
-      setStats(prev => ({
-        ...prev,
-        totalCO2: totalCO2,
-        efficiencyScore: Math.round(avgEfficiency),
-      }));
-    }
-  }, [models]);
+    const fetchDashboardData = async () => {
+      if (!user) return;
 
-  // Update energy sources from realtime hook
-  useEffect(() => {
-    setStats(prev => ({
-      ...prev,
-      energySources: formattedSources,
-      renewablePercentage: renewablePercentage,
-    }));
-  }, [formattedSources, renewablePercentage]);
+      try {
+        // Fetch models to calculate total CO2
+        const { data: models } = await supabase
+          .from('models')
+          .select('co2_emissions, efficiency_score')
+          .eq('user_id', user.id);
+
+        if (models && models.length > 0) {
+          const totalCO2 = models.reduce((sum, m) => sum + Number(m.co2_emissions || 0), 0);
+          const avgEfficiency = models.reduce((sum, m) => sum + Number(m.efficiency_score || 0), 0) / models.length;
+          
+          setStats(prev => ({
+            ...prev,
+            totalCO2: totalCO2 > 0 ? totalCO2 : 1.2,
+            efficiencyScore: avgEfficiency > 0 ? Math.round(avgEfficiency) : 94,
+          }));
+        }
+
+        // Fetch energy sources
+        const { data: sources } = await supabase
+          .from('energy_sources')
+          .select('*')
+          .eq('user_id', user.id);
+
+        if (sources && sources.length > 0) {
+          const formattedSources = sources.map((s, i) => ({
+            name: s.source_name,
+            value: s.percentage,
+            color: s.is_renewable ? (i === 0 ? '#10b981' : '#14b8a6') : '#6b7280',
+          }));
+          const renewablePercent = sources
+            .filter(s => s.is_renewable)
+            .reduce((sum, s) => sum + s.percentage, 0);
+          
+          setStats(prev => ({
+            ...prev,
+            energySources: formattedSources,
+            renewablePercentage: renewablePercent,
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user]);
 
   const optimizationTips = [
     {
@@ -76,38 +114,6 @@ const Dashboard = () => {
       description: 'Instance g5.xlarge is underutilized (15%). Downgrade advised.',
     },
   ];
-
-  const loading = modelsLoading || sourcesLoading;
-  const hasData = models.length > 0;
-
-  if (loading) {
-    return (
-      <AppLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
-      </AppLayout>
-    );
-  }
-
-  if (!hasData) {
-    return (
-      <AppLayout>
-        <div className="flex flex-col items-center justify-center h-64 text-center">
-          <Leaf className="h-16 w-16 text-muted-foreground mb-4" />
-          <h2 className="text-2xl font-semibold text-foreground mb-2">No Models Yet</h2>
-          <p className="text-muted-foreground mb-4">Add your first AI model to start tracking carbon emissions.</p>
-          <a 
-            href="/models" 
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            <Zap className="h-4 w-4" />
-            Add Your First Model
-          </a>
-        </div>
-      </AppLayout>
-    );
-  }
 
   return (
     <AppLayout>
