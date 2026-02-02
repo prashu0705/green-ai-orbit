@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { useRealtimeModels } from '@/hooks/useRealtimeModels';
+import { useRealtimeEnergySources } from '@/hooks/useRealtimeEnergySources';
 import { 
   TrendingDown, 
   Leaf, 
@@ -25,8 +24,8 @@ interface DashboardStats {
 }
 
 const Dashboard = () => {
-  const { user } = useAuth();
   const { models, loading: modelsLoading } = useRealtimeModels();
+  const { formattedSources, renewablePercentage, loading: sourcesLoading } = useRealtimeEnergySources();
   const [stats, setStats] = useState<DashboardStats>({
     totalCO2: 0,
     co2Change: 0,
@@ -35,7 +34,6 @@ const Dashboard = () => {
     renewablePercentage: 0,
     energySources: [],
   });
-  const [sourcesLoading, setSourcesLoading] = useState(true);
 
   // Calculate stats from realtime models
   useEffect(() => {
@@ -51,42 +49,14 @@ const Dashboard = () => {
     }
   }, [models]);
 
-  // Fetch energy sources only
+  // Update energy sources from realtime hook
   useEffect(() => {
-    const fetchEnergySources = async () => {
-      if (!user) return;
-
-      try {
-        const { data: sources } = await supabase
-          .from('energy_sources')
-          .select('*')
-          .eq('user_id', user.id);
-
-        if (sources && sources.length > 0) {
-          const formattedSources = sources.map((s, i) => ({
-            name: s.source_name,
-            value: s.percentage,
-            color: s.is_renewable ? (i === 0 ? '#10b981' : '#14b8a6') : '#6b7280',
-          }));
-          const renewablePercent = sources
-            .filter(s => s.is_renewable)
-            .reduce((sum, s) => sum + s.percentage, 0);
-          
-          setStats(prev => ({
-            ...prev,
-            energySources: formattedSources,
-            renewablePercentage: renewablePercent,
-          }));
-        }
-      } catch (error) {
-        console.error('Error fetching energy sources:', error);
-      } finally {
-        setSourcesLoading(false);
-      }
-    };
-
-    fetchEnergySources();
-  }, [user]);
+    setStats(prev => ({
+      ...prev,
+      energySources: formattedSources,
+      renewablePercentage: renewablePercentage,
+    }));
+  }, [formattedSources, renewablePercentage]);
 
   const optimizationTips = [
     {
