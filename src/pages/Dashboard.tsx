@@ -3,13 +3,11 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useRealtimeModels } from '@/hooks/useRealtimeModels';
 import { 
   TrendingDown, 
   Leaf, 
   Zap, 
-  Sun, 
-  Wind, 
-  Building2,
   Globe,
   Clock,
   Gauge,
@@ -28,6 +26,7 @@ interface DashboardStats {
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { models, loading: modelsLoading } = useRealtimeModels();
   const [stats, setStats] = useState<DashboardStats>({
     totalCO2: 0,
     co2Change: 0,
@@ -36,33 +35,28 @@ const Dashboard = () => {
     renewablePercentage: 0,
     energySources: [],
   });
-  const [loading, setLoading] = useState(true);
-  const [hasData, setHasData] = useState(false);
+  const [sourcesLoading, setSourcesLoading] = useState(true);
 
+  // Calculate stats from realtime models
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    if (models.length > 0) {
+      const totalCO2 = models.reduce((sum, m) => sum + Number(m.co2_emissions || 0), 0);
+      const avgEfficiency = models.reduce((sum, m) => sum + Number(m.efficiency_score || 0), 0) / models.length;
+      
+      setStats(prev => ({
+        ...prev,
+        totalCO2: totalCO2,
+        efficiencyScore: Math.round(avgEfficiency),
+      }));
+    }
+  }, [models]);
+
+  // Fetch energy sources only
+  useEffect(() => {
+    const fetchEnergySources = async () => {
       if (!user) return;
 
       try {
-        // Fetch models to calculate total CO2
-        const { data: models } = await supabase
-          .from('models')
-          .select('co2_emissions, efficiency_score')
-          .eq('user_id', user.id);
-
-        if (models && models.length > 0) {
-          setHasData(true);
-          const totalCO2 = models.reduce((sum, m) => sum + Number(m.co2_emissions || 0), 0);
-          const avgEfficiency = models.reduce((sum, m) => sum + Number(m.efficiency_score || 0), 0) / models.length;
-          
-          setStats(prev => ({
-            ...prev,
-            totalCO2: totalCO2,
-            efficiencyScore: Math.round(avgEfficiency),
-          }));
-        }
-
-        // Fetch energy sources
         const { data: sources } = await supabase
           .from('energy_sources')
           .select('*')
@@ -85,13 +79,13 @@ const Dashboard = () => {
           }));
         }
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        console.error('Error fetching energy sources:', error);
       } finally {
-        setLoading(false);
+        setSourcesLoading(false);
       }
     };
 
-    fetchDashboardData();
+    fetchEnergySources();
   }, [user]);
 
   const optimizationTips = [
@@ -112,6 +106,9 @@ const Dashboard = () => {
       description: 'Instance g5.xlarge is underutilized (15%). Downgrade advised.',
     },
   ];
+
+  const loading = modelsLoading || sourcesLoading;
+  const hasData = models.length > 0;
 
   if (loading) {
     return (
