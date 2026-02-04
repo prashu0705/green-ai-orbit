@@ -6,9 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { 
-  Search, 
-  Plus, 
+import {
+  Search,
+  Plus,
   Cpu,
   Gauge,
   Moon,
@@ -71,7 +71,7 @@ const Models = () => {
 
   const fetchModels = async () => {
     if (!user) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('models')
@@ -137,6 +137,13 @@ const Models = () => {
     }
 
     try {
+      const selectedRegion = regions.find(r => r.id === newModel.region_id);
+      const carbonFactor = selectedRegion?.carbon_factor || 0.45; // Default to global avg if not found
+      // Estimation: GPU Count * 0.3kW (avg load) * 24h * 30 days
+      const estimatedEnergy = newModel.gpu_count * 0.3 * 24 * 30;
+      // Carbon: Energy * Carbon Factor
+      const estimatedCO2 = (estimatedEnergy * carbonFactor) / 1000; // Convert to tonnes
+
       const { error } = await supabase.from('models').insert({
         user_id: user.id,
         name: newModel.name,
@@ -144,6 +151,8 @@ const Models = () => {
         gpu_count: newModel.gpu_count,
         status: 'active',
         efficiency_score: Math.floor(Math.random() * 30) + 70,
+        energy_kwh: estimatedEnergy,
+        co2_emissions: estimatedCO2,
       });
 
       if (error) throw error;
@@ -200,6 +209,33 @@ const Models = () => {
     }
   };
 
+  const handleDeployUpdate = async () => {
+    if (!selectedModel) return;
+
+    try {
+      toast.info('Initiating deployment...');
+      const now = new Date().toISOString();
+
+      const { error } = await supabase
+        .from('models')
+        .update({
+          last_deployed_at: now,
+          status: 'active' // Ensure it goes back to active if it was sleeping
+        })
+        .eq('id', selectedModel.id);
+
+      if (error) throw error;
+
+      toast.success('Deployment successful version updated');
+      setSelectedModel({ ...selectedModel, last_deployed_at: now, status: 'active' });
+      // Update list to reflect changes
+      setModels(prev => prev.map(m => m.id === selectedModel.id ? { ...m, last_deployed_at: now, status: 'active' } : m));
+    } catch (error) {
+      console.error('Deployment failed:', error);
+      toast.error('Deployment failed');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-700';
@@ -209,7 +245,7 @@ const Models = () => {
     }
   };
 
-  const filteredModels = models.filter(m => 
+  const filteredModels = models.filter(m =>
     m.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -233,11 +269,10 @@ const Models = () => {
               <button
                 key={model.id}
                 onClick={() => handleSelectModel(model)}
-                className={`w-full text-left p-3 rounded-lg transition-colors ${
-                  selectedModel?.id === model.id
-                    ? 'bg-secondary border-l-4 border-l-primary'
-                    : 'hover:bg-muted'
-                }`}
+                className={`w-full text-left p-3 rounded-lg transition-colors ${selectedModel?.id === model.id
+                  ? 'bg-secondary border-l-4 border-l-primary'
+                  : 'hover:bg-muted'
+                  }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-sm">{model.name}</span>
@@ -320,10 +355,9 @@ const Models = () => {
                   </div>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
-                      <div className={`w-2 h-2 rounded-full ${
-                        selectedModel.status === 'active' ? 'bg-green-500' : 
+                      <div className={`w-2 h-2 rounded-full ${selectedModel.status === 'active' ? 'bg-green-500' :
                         selectedModel.status === 'idle' ? 'bg-yellow-500' : 'bg-blue-500'
-                      }`} />
+                        }`} />
                       <span>{selectedModel.status === 'active' ? 'Running' : selectedModel.status.charAt(0).toUpperCase() + selectedModel.status.slice(1)}</span>
                     </div>
                     <span>·</span>
@@ -336,7 +370,7 @@ const Models = () => {
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Efficiency Score</p>
                   <p className="text-2xl font-bold">{selectedModel.efficiency_score}<span className="text-muted-foreground text-base">/100</span></p>
                 </div>
-                <Button>Deploy Update</Button>
+                <Button onClick={handleDeployUpdate}>Deploy Update</Button>
               </div>
             </div>
 
@@ -356,10 +390,10 @@ const Models = () => {
                       <XAxis dataKey="time" axisLine={false} tickLine={false} />
                       <YAxis axisLine={false} tickLine={false} />
                       <Tooltip />
-                      <Line 
-                        type="monotone" 
-                        dataKey="value" 
-                        stroke="hsl(var(--primary))" 
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke="hsl(var(--primary))"
                         strokeWidth={2}
                         dot={{ fill: 'hsl(var(--primary))', r: 4 }}
                       />

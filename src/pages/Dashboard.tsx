@@ -3,12 +3,12 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { 
-  TrendingDown, 
-  Leaf, 
-  Zap, 
-  Sun, 
-  Wind, 
+import {
+  TrendingDown,
+  Leaf,
+  Zap,
+  Sun,
+  Wind,
   Building2,
   Globe,
   Clock,
@@ -29,16 +29,12 @@ interface DashboardStats {
 const Dashboard = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
-    totalCO2: 1.2,
-    co2Change: -12,
-    targetCO2: 1.0,
-    efficiencyScore: 94,
-    renewablePercentage: 75,
-    energySources: [
-      { name: 'Solar Farm A', value: 30, color: '#10b981' },
-      { name: 'Wind Offshore', value: 45, color: '#14b8a6' },
-      { name: 'Public Grid', value: 25, color: '#6b7280' },
-    ],
+    totalCO2: 0,
+    co2Change: 0,
+    targetCO2: 0,
+    efficiencyScore: 0,
+    renewablePercentage: 0,
+    energySources: [],
   });
   const [loading, setLoading] = useState(true);
 
@@ -56,34 +52,45 @@ const Dashboard = () => {
         if (models && models.length > 0) {
           const totalCO2 = models.reduce((sum, m) => sum + Number(m.co2_emissions || 0), 0);
           const avgEfficiency = models.reduce((sum, m) => sum + Number(m.efficiency_score || 0), 0) / models.length;
-          
+
           setStats(prev => ({
             ...prev,
-            totalCO2: totalCO2 > 0 ? totalCO2 : 1.2,
-            efficiencyScore: avgEfficiency > 0 ? Math.round(avgEfficiency) : 94,
+            totalCO2: totalCO2,
+            efficiencyScore: avgEfficiency > 0 ? Math.round(avgEfficiency) : 0,
           }));
         }
 
-        // Fetch energy sources
-        const { data: sources } = await supabase
-          .from('energy_sources')
-          .select('*')
+        // Fetch models with region data to calculate Energy Mix
+        const { data: modelsWithRegion } = await supabase
+          .from('models')
+          .select(`
+            *,
+            regions (name, code, renewable_percentage)
+          `)
           .eq('user_id', user.id);
 
-        if (sources && sources.length > 0) {
-          const formattedSources = sources.map((s, i) => ({
-            name: s.source_name,
-            value: s.percentage,
-            color: s.is_renewable ? (i === 0 ? '#10b981' : '#14b8a6') : '#6b7280',
-          }));
-          const renewablePercent = sources
-            .filter(s => s.is_renewable)
-            .reduce((sum, s) => sum + s.percentage, 0);
-          
+        if (modelsWithRegion && modelsWithRegion.length > 0) {
+          // Group by "Clean" vs "Fossil" roughly based on region
+          let renewableEnergy = 0;
+          let fossilEnergy = 0;
+
+          modelsWithRegion.forEach(m => {
+            const renewablePercent = m.regions?.renewable_percentage || 25;
+            const energy = Number(m.energy_kwh) || 100; // fallback to 100kW if data missing
+            renewableEnergy += energy * (renewablePercent / 100);
+            fossilEnergy += energy * ((100 - renewablePercent) / 100);
+          });
+
+          const totalCalculated = renewableEnergy + fossilEnergy;
+          const formattedSources = [
+            { name: 'Renewables (Hydro/Wind)', value: Math.round((renewableEnergy / totalCalculated) * 100), color: '#10b981' }, // Green
+            { name: 'Fossil Fuels (Grid)', value: Math.round((fossilEnergy / totalCalculated) * 100), color: '#6b7280' },   // Gray
+          ].filter(s => s.value > 0);
+
           setStats(prev => ({
             ...prev,
             energySources: formattedSources,
-            renewablePercentage: renewablePercent,
+            renewablePercentage: Math.round((renewableEnergy / totalCalculated) * 100),
           }));
         }
       } catch (error) {
@@ -96,22 +103,44 @@ const Dashboard = () => {
     fetchDashboardData();
   }, [user]);
 
+  // Rightsizing Logic
+  const instanceLevels = ['g5.4xlarge', 'g5.2xlarge', 'g5.xlarge', 'g4dn.xlarge'];
+  const [currentInstanceIdx, setCurrentInstanceIdx] = useState(0);
+
+  const handleRightsizingClick = () => {
+    if (currentInstanceIdx < instanceLevels.length - 1) {
+      setCurrentInstanceIdx(prev => prev + 1);
+      // Simulate API update
+      toast.success(`Downgraded to ${instanceLevels[currentInstanceIdx + 1]}`);
+    }
+  };
+
+  const isOptimal = currentInstanceIdx === instanceLevels.length - 1;
+  const currentInstance = instanceLevels[currentInstanceIdx];
+
   const optimizationTips = [
     {
       icon: Globe,
       title: 'Switch Region',
       description: 'Region eu-north-1 has 40% lower carbon intensity right now.',
       highlight: 'eu-north-1',
+      action: null
     },
     {
       icon: Clock,
       title: 'Schedule Training',
       description: 'Shift training job #AF82 to 02:00 AM for wind energy peak.',
+      action: null
     },
     {
       icon: Gauge,
-      title: 'Rightsizing',
-      description: 'Instance g5.xlarge is underutilized (15%). Downgrade advised.',
+      title: isOptimal ? 'Rightsized (Optimal)' : 'Right-size Model',
+      description: isOptimal
+        ? `Instance ${currentInstance} is running at optimal efficiency.`
+        : `Instance ${currentInstance} is underutilized. Click to downgrade.`,
+      highlight: currentInstance,
+      action: !isOptimal ? handleRightsizingClick : null,
+      isOptimal: isOptimal
     },
   ];
 
@@ -159,7 +188,7 @@ const Dashboard = () => {
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-5xl font-bold text-foreground">{stats.totalCO2}</span>
+                  <span className="text-5xl font-bold text-foreground">{stats.totalCO2.toFixed(3)}</span>
                   <span className="text-lg text-muted-foreground">t CO₂e</span>
                 </div>
               </div>
@@ -194,7 +223,7 @@ const Dashboard = () => {
                 <ResponsiveContainer width={140} height={140}>
                   <PieChart>
                     <Pie
-                      data={stats.energySources}
+                      data={stats.energySources.length > 0 ? stats.energySources : [{ name: 'No Data', value: 100, color: '#e5e7eb' }]}
                       cx="50%"
                       cy="50%"
                       innerRadius={45}
@@ -202,7 +231,7 @@ const Dashboard = () => {
                       paddingAngle={2}
                       dataKey="value"
                     >
-                      {stats.energySources.map((entry, index) => (
+                      {(stats.energySources.length > 0 ? stats.energySources : [{ name: 'No Data', value: 100, color: '#e5e7eb' }]).map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -215,15 +244,19 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="flex-1 space-y-3">
-                {stats.energySources.map((source, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: source.color }} />
-                      <span className="text-sm">{source.name}</span>
+                {stats.energySources.length > 0 ? (
+                  stats.energySources.map((source, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: source.color }} />
+                        <span className="text-sm">{source.name}</span>
+                      </div>
+                      <span className="text-sm font-medium">{source.value}%</span>
                     </div>
-                    <span className="text-sm font-medium">{source.value}%</span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <div className="text-sm text-muted-foreground text-center py-4">No energy sources tracked yet</div>
+                )}
               </div>
             </div>
             <div className="mt-4 pt-4 border-t">
@@ -278,21 +311,26 @@ const Dashboard = () => {
           <CardContent>
             <div className="space-y-4">
               {optimizationTips.map((tip, i) => (
-                <div key={i} className="flex gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
-                    <tip.icon className="h-5 w-5 text-primary" />
+                <div
+                  key={i}
+                  className={`flex gap-3 p-2 rounded-lg transition-colors ${tip.action ? 'cursor-pointer hover:bg-muted/50 active:scale-[0.98]' : ''}`}
+                  onClick={() => tip.action && tip.action()}
+                >
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                    // @ts-ignore
+                    tip.isOptimal ? 'bg-green-100 text-green-600' : 'bg-secondary text-primary'
+                    }`}>
+                    <tip.icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <h4 className="font-medium text-foreground">{tip.title}</h4>
+                    <h4 className={`font-medium ${
+                      // @ts-ignore
+                      tip.isOptimal ? 'text-green-700' : 'text-foreground'
+                      }`}>
+                      {tip.title}
+                    </h4>
                     <p className="text-sm text-muted-foreground">
-                      {tip.description.split(tip.highlight || '').map((part, j) => (
-                        <span key={j}>
-                          {part}
-                          {tip.highlight && j === 0 && (
-                            <span className="text-primary font-medium">{tip.highlight}</span>
-                          )}
-                        </span>
-                      ))}
+                      {tip.description}
                     </p>
                   </div>
                 </div>

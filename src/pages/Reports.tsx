@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { 
-  Leaf, 
-  TrendingUp, 
-  Sun, 
-  Download, 
-  FileText, 
+import {
+  Leaf,
+  TrendingUp,
+  Sun,
+  Download,
+  FileText,
   Award,
   Sparkles,
   AlertCircle,
@@ -56,7 +56,6 @@ const Reports = () => {
   useEffect(() => {
     if (user) {
       fetchReportData();
-      generateInsights();
     }
   }, [user]);
 
@@ -93,12 +92,14 @@ const Reports = () => {
       if (models && models.length > 0) {
         const totalCO2 = models.reduce((sum, m) => sum + Number(m.co2_emissions || 0), 0);
         const avgEfficiency = models.reduce((sum, m) => sum + Number(m.efficiency_score || 0), 0) / models.length;
-        
+
         setStats(prev => ({
           ...prev,
           efficiencyGain: Math.round(avgEfficiency - 76), // Compared to baseline
           co2Savings: -(totalCO2 * 0.3).toFixed(1) as unknown as number, // Estimated savings
         }));
+
+        generateInsights(models);
       }
     } catch (error) {
       console.error('Error fetching report data:', error);
@@ -125,33 +126,86 @@ const Reports = () => {
     }));
   };
 
-  const generateInsights = () => {
-    setInsights([
-      {
-        type: 'warning',
-        title: 'Weekday Peak Detected',
-        description: 'Emissions spike on Tuesdays. Moving training jobs to Saturday could save',
-        highlight: '~15% CO₂',
-      },
-      {
-        type: 'success',
-        title: 'Top Performer',
-        description: 'Model NLP-Core-v4 shows the highest efficiency gain',
-        highlight: '(+12%) this month.',
-      },
-      {
+  const generateInsights = (models: any[]) => {
+    const newInsights: AIInsight[] = [];
+
+    if (!models || models.length === 0) {
+      newInsights.push({
         type: 'info',
-        title: 'Idle Resources',
-        description: '3 instances in us-east-1 detected as idle for >48h.',
-      },
-    ]);
+        title: 'No Data Detected',
+        description: 'Add models to your dashboard to generate specific AI insights.',
+      });
+      setInsights(newInsights);
+      return;
+    }
+
+    // 1. Efficiency Insight
+    // Logic: Find worst performer to warn, OR best performer to praise
+    const sortedByEff = [...models].sort((a, b) => (a.efficiency_score || 0) - (b.efficiency_score || 0));
+    const worstModel = sortedByEff[0];
+    const bestModel = sortedByEff[sortedByEff.length - 1];
+
+    if ((worstModel.efficiency_score || 0) < 70) {
+      newInsights.push({
+        type: 'warning',
+        title: 'Optimization Needed',
+        description: `Model ${worstModel.name} is underperforming`,
+        highlight: `(${worstModel.efficiency_score}/100 efficiency)`,
+      });
+    } else {
+      newInsights.push({
+        type: 'success',
+        title: 'High Efficiency',
+        description: `Model ${bestModel.name} is running optimally`,
+        highlight: `(${bestModel.efficiency_score}/100 efficiency)`,
+      });
+    }
+
+    // 2. Region/Carbon Insight
+    // Logic: Check for high emissions > 0.5t (arbitrary threshold for "dirty")
+    const highEmissionModel = models.find((m: any) => m.co2_emissions > 0.5);
+    if (highEmissionModel) {
+      newInsights.push({
+        type: 'info',
+        title: 'Region Opportunity',
+        description: `Switching ${highEmissionModel.name} to a greener region could save`,
+        highlight: '30-40% CO₂',
+      });
+    } else {
+      newInsights.push({
+        type: 'success',
+        title: 'Green Infrastructure',
+        description: 'Your workloads are running in low-carbon regions.',
+        highlight: 'Excellent Choice',
+      });
+    }
+
+    // 3. General System Health
+    // Logic: Generic health check based on average score
+    const avgScore = models.reduce((s, m) => s + (m.efficiency_score || 0), 0) / models.length;
+    if (avgScore > 80) {
+      newInsights.push({
+        type: 'info',
+        title: 'System Health',
+        description: 'Global compute resources are healthy.',
+        highlight: 'Stable',
+      });
+    } else {
+      newInsights.push({
+        type: 'info',
+        title: 'Resource Monitor',
+        description: 'Consider rightsizing instances to improve average score.',
+      });
+    }
+
+    setInsights(newInsights);
   };
 
   const handleExportCSV = () => {
     const headers = ['Month', 'Current Emissions (t)', 'Baseline (t)'];
     const rows = emissionData.map(d => [d.month, d.current, d.baseline]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -159,7 +213,7 @@ const Reports = () => {
     a.download = 'carbon-audit-report.csv';
     a.click();
     URL.revokeObjectURL(url);
-    
+
     toast.success('CSV exported successfully');
   };
 

@@ -10,16 +10,30 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { 
-  User, 
-  Bell, 
-  Shield, 
-  Palette, 
+import {
+  User,
+  Bell,
+  Shield,
+  Palette,
   Database,
   Save,
-  Camera
+  Camera,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useNavigate } from 'react-router-dom';
 
 interface ProfileData {
   full_name: string;
@@ -115,6 +129,38 @@ const Settings = () => {
       return names.map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
     }
     return user?.email?.slice(0, 2).toUpperCase() || 'U';
+  };
+
+  const navigate = useNavigate();
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    setLoading(true);
+
+    try {
+      // Manual client-side deletion (Plan B) - robust and reliable
+      // 1. Delete dependent data
+      await supabase.from('energy_sources').delete().eq('user_id', user.id);
+      await supabase.from('certificates').delete().eq('user_id', user.id);
+      await supabase.from('carbon_logs').delete().eq('user_id', user.id);
+
+      // 2. Delete models (cascades to energy_logs)
+      await supabase.from('models').delete().eq('user_id', user.id);
+
+      // 3. Delete profile
+      await supabase.from('profiles').delete().eq('user_id', user.id);
+
+      // 4. Sign out
+      await supabase.auth.signOut();
+
+      toast.success('Account data reset successfully');
+      navigate('/login');
+    } catch (error: any) {
+      console.error('Error deleting account:', error);
+      toast.error(`Failed to reset data: ${error.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -312,7 +358,6 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* Data Management */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -333,8 +378,52 @@ const Settings = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
-    </AppLayout>
+
+        {/* Danger Zone */}
+        <Card className="border-destructive/50">
+          <CardHeader>
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              <div>
+                <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                <CardDescription>Irreversible account actions</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-destructive">Delete Account</p>
+                <p className="text-sm text-muted-foreground">Permanently remove your account and all data</p>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Account
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete your
+                      account and all associated data. Your login credentials will be removed.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Delete Account
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </CardContent>
+        </Card>
+      </div >
+    </AppLayout >
   );
 };
 
