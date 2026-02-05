@@ -23,6 +23,7 @@ interface RiskMetrics {
     basePremium: number;
     actualPremium: number;
     potentialSavings: number;
+    forecastedOverrun: number; // Percentage probability
 }
 
 const Finance = () => {
@@ -33,6 +34,7 @@ const Finance = () => {
         basePremium: 10000,
         actualPremium: 10000,
         potentialSavings: 0,
+        forecastedOverrun: 15,
     });
     const [loading, setLoading] = useState(true);
 
@@ -84,7 +86,8 @@ const Finance = () => {
                     premiumStatus: status,
                     basePremium: base,
                     actualPremium: actual,
-                    potentialSavings: insuranceSavings + carbonTaxSavings
+                    potentialSavings: insuranceSavings + carbonTaxSavings,
+                    forecastedOverrun: score > 80 ? 2 : score > 50 ? 15 : 65
                 });
             } else {
                 // Default state for no modes
@@ -93,7 +96,8 @@ const Finance = () => {
                     premiumStatus: 'Standard',
                     basePremium: 5000,
                     actualPremium: 5000,
-                    potentialSavings: 0
+                    potentialSavings: 0,
+                    forecastedOverrun: 15
                 });
             }
         } catch (error) {
@@ -138,8 +142,20 @@ const Finance = () => {
                                 <Progress value={metrics.riskScore} className="h-2 bg-secondary" indicatorClassName={metrics.riskScore >= 80 ? 'bg-green-500' : 'bg-primary'} />
                                 <div className="flex justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                     <span>High Risk</span>
+                                    <span>Moderate</span>
                                     <span>Safe</span>
                                 </div>
+
+                                {/* AI Prediction Badge */}
+                                <div className="flex items-center justify-between text-sm bg-secondary/50 p-2 rounded mt-2">
+                                    <span className="text-muted-foreground flex items-center gap-1">
+                                        <TrendingDown className="w-3 h-3" /> Predicted Overrun
+                                    </span>
+                                    <span className={`font-bold ${metrics.forecastedOverrun > 20 ? 'text-red-500' : 'text-green-600'}`}>
+                                        {metrics.forecastedOverrun}% Chance
+                                    </span>
+                                </div>
+
                                 <div className="bg-secondary/30 p-3 rounded-lg flex gap-3 items-start text-sm">
                                     {metrics.riskScore >= 80 ? (
                                         <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
@@ -149,7 +165,9 @@ const Finance = () => {
                                     <span className="leading-relaxed text-muted-foreground">
                                         {metrics.riskScore >= 80
                                             ? "Excellent! Your AI fleet is optimized. You qualify for the 'Green Tier' insurance package."
-                                            : "Improve efficiency > 80 to unlock premium discounts."}
+                                            : metrics.riskScore >= 70
+                                                ? "Green Financing Unlocked! Reach score > 80 to unlock premium insurance discounts."
+                                                : "Improve efficiency > 70 to unlock Green Financing options."}
                                     </span>
                                 </div>
                             </div>

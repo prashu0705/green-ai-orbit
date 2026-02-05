@@ -165,7 +165,48 @@ const Models = () => {
       return;
     }
 
+    // 🛡️ GOVERNANCE CHECK (Backend Integration)
+    // We verify against the local Python backend before touching the DB.
     try {
+      // Criticality is simulated based on name for this PoC
+      const criticality = newModel.name.toLowerCase().includes('critical') ? 'High' : 'Medium';
+      const type = newModel.name.toLowerCase().includes('large') ? 'Large' : 'Small';
+
+      console.log("Checking policy for:", { criticality, type, region: newModel.region_id });
+
+      // Look up the actual region code (e.g. 'us-east-1') to send to backend
+      // because the backend checks for "east" or "central" in the string.
+      const selectedRegionObj = regions.find(r => r.id === newModel.region_id);
+      const regionCodeForPolicy = selectedRegionObj ? (selectedRegionObj.code || selectedRegionObj.name || '') : '';
+
+      // Call the local Governance API
+      // Note: In production, this would be a proxied call or server-side function.
+      // For this PoC, we call direct to localhost:8000
+      const response = await fetch('http://127.0.0.1:8000/api/v1/models/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + user.id },
+        body: JSON.stringify({
+          name: newModel.name,
+          region_id: regionCodeForPolicy, // Send 'us-east-1', not UUID
+          type: type,
+          criticality: criticality,
+          efficiency_score: 0
+        })
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        // BACKEND DENIED THE ACTION
+        toast.error("Governance Policy Violation", {
+          description: data.error // e.g. "Cannot deploy High Criticality..."
+        });
+        return; // Stop right here!
+      }
+
+      toast.success("Governance Check Passed");
+
+      // If Backend says OK, proceed to Supabase logic...
       const selectedRegion = regions.find(r => r.id === newModel.region_id);
       const carbonFactor = selectedRegion?.carbon_factor || 0.45; // Default to global avg if not found
       // Estimation: GPU Count * 0.3kW (avg load) * 24h * 30 days
