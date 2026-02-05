@@ -1,58 +1,51 @@
-# EcoCompute - Green AI Orbit 🌍
+# 🌿 Green AI Orbit (EcoCompute)
 
-EcoCompute is a comprehensive dashboard for tracking, optimizing, and certifying the carbon footprint of AI models. It empowers developers to schedule workloads in low-carbon regions, view real-time efficiency reports, and mint sustainability certificates to a simulated blockchain.
+**EcoCompute** is an intelligent dashboard designed to monitor, audit, and optimize the carbon footprint of AI workloads. It empowers organizations to balance innovation with environmental responsibility by providing real-time insights and automated governance policies.
 
-![Project Status](https://img.shields.io/badge/Status-Live-success)
-![Tech Stack](https://img.shields.io/badge/Stack-T3_Stack-blue)
+![Dashboard Preview](https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop)
 
 ## 🚀 Key Features
 
-### 1. Advanced Scheduler V2 (Pro)
-*   **Dynamic Forecast Grid**: Visualizes carbon intensity across regions with a clean "Pill" style interface.
-*   **Smart Recommendation**: Automatically highlights the absolute best time slot to run your training jobs.
-*   **simulation Mode**: "What-If" analysis allows you to preview different regions and immediately see potential CO2 savings before checking out.
-*   **Actionable Insights**: One-click "Shift Workload" implementation.
+### 📊 Real-Time Dashboard
+- **Live Emission Tracking**: Monitor CO₂ emissions relative to a baseline.
+- **Cost Savings**: Dynamic calculation of projected savings from green optimizations.
+- **Energy Mix**: Visualize the renewable vs. fossil fuel split of your compute regions.
+- **Smart Recommendations**: Always see top 3 actionable tips (e.g., "Switch Region", "Enable Green Mode").
 
-### 2. Real-Time Reports & Analytics
-*   **Executive Summary**: Live dashboard comparing your CO2 savings and efficiency gains against a baseline.
-*   **Dynamic AI Insights**: An intelligent engine that scans your actual model data to flag underperforming instances or praise top-tier efficiency.
-*   **Adaptive Context**: Automatically adjusts report granularity whether you have 1 model or 100.
+### 🤖 Model Management
+- **Inventory**: Track all deployed AI models, their GPU usage, and efficiency scores.
+- **Auto-Sleep Policy**: Automatically puts inefficient models (Efficiency < 75) to sleep to save energy.
+- **Right-sizing**: Get recommendations to downgrade GPU instances for idle workloads.
+- **Lifecycle Actions**: Deploy updates, wake/sleep models, and delete deprecated models.
 
-### 3. Web3 Certificate Simulation
-*   **Blockchain Integration**: Simulates the full lifecycle of a Green AI Certificate.
-*   **Flow**: Mint -> Sign (Wallet) -> Mine (Simulated Delay) -> Verify (Immutable Ledger).
-*   **Status Persistence**: Uses robust database strategies to ensure verified statuses are persistent and secure.
+### 📝 Reporting & Compliance
+- **Carbon Audits**: Generate PDF/CSV reports for environmental auditing.
+- **Dynamic Charts**: Visualize emission trends over the last 6 months.
+- **Certificates**: Tokenized proof of offset (Mock-up).
 
-### 4. Interactive Dashboard
-*   **Rightsizing Engine**: Interactive UI that demonstrates the impact of resizing instances (e.g., downgrading from `p4d.24xlarge` to `g4dn.xlarge`).
-*   **Visual Metrics**: Real-time charts for renewable energy mix and total carbon footprint.
-
----
+### ⚙️ Automation Studio
+- **Policy Engine**: Configure rules like "Auto-Sleep", "Green Region Only", and "Right-sizing Assistant".
 
 ## 🛠 Tech Stack
 
-This project is built using the **T3 Architecture** (Vite + React + Supabase), ensuring high performance and scalability.
+- **Frontend**: React (Vite), TypeScript
+- **Styling**: Tailwind CSS, Shadcn UI
+- **Charts**: Recharts
+- **Icons**: Lucide React
+- **Backend/Auth**: Supabase
+- **State Management**: React Context / Hooks
 
-*   **Frontend**: [React 18](https://react.dev/) + [Vite](https://vitejs.dev/) (TypeScript)
-*   **Styling**: [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
-*   **Backend & Auth**: [Supabase](https://supabase.com/) (PostgreSQL)
-*   **Data Fetching**: [TanStack Query](https://tanstack.com/query/latest)
-*   **Visualizations**: [Recharts](https://recharts.org/)
-*   **Icons**: [Lucide React](https://lucide.dev/)
-
----
-
-## 💻 Getting Started
+## 🏁 Getting Started
 
 ### Prerequisites
-*   Node.js (v18+)
-*   npm or pnpm
+- Node.js (v18+)
+- npm or yarn
 
 ### Installation
 
 1.  **Clone the repository**
     ```bash
-    git clone https://github.com/prashu0705/green-ai-orbit.git
+    git clone https://github.com/yourusername/green-ai-orbit.git
     cd green-ai-orbit
     ```
 
@@ -61,31 +54,31 @@ This project is built using the **T3 Architecture** (Vite + React + Supabase), e
     npm install
     ```
 
-3.  **Start Development Server**
+3.  **Start the development server**
     ```bash
     npm run dev
     ```
 
-### Environment Setup
-This project uses Supabase. Ensure you have your `.env` file configured with:
-```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+4.  **Build for production**
+    ```bash
+    npm run build
+    ```
+
+## 🧹 Project Structure
+
+```
+src/
+├── components/     # UI Components (Layout, Cards, Charts)
+├── pages/          # Main Views (Dashboard, Models, Reports, Settings)
+├── hooks/          # Custom Hooks (useAuth)
+├── lib/            # Utilities (PDF Generator, Helpers)
+└── integrations/   # Supabase Client
 ```
 
----
-
-## 🔒 Security & Performance
-*   **Row Level Security (RLS)**: Data access is strictly controlled via PostgreSQL policies.
-*   **Edge-Ready**: Designed to be deployable on edge networks (Vercel/Netlify).
-
----
-
 ## 🤝 Contributing
-Contributions are welcome! Please fork the repository and submit a pull request.
 
-1.  Fork the Project
-2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the Branch (`git push origin feature/AmazingFeature`)
-5.  Open a Pull Request
+We welcome contributions to make AI greener! Please see `CONTRIBUTING.md` (coming soon) for details.
+
+## 📄 License
+
+This project is licensed under the MIT License.

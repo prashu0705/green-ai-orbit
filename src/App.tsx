@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { UIProvider } from "@/context/UIContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -17,6 +18,9 @@ import Certificates from "./pages/Certificates";
 import Reports from "./pages/Reports";
 import Scheduler from "./pages/Scheduler";
 import Settings from "./pages/Settings";
+import Finance from "./pages/Finance";
+import Marketplace from "./pages/Marketplace";
+import GreenTuning from "./pages/GreenTuning";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -103,6 +107,30 @@ const AppRoutes = () => (
         </ProtectedRoute>
       }
     />
+    <Route
+      path="/finance"
+      element={
+        <ProtectedRoute>
+          <Finance />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/marketplace"
+      element={
+        <ProtectedRoute>
+          <Marketplace />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/tuning"
+      element={
+        <ProtectedRoute>
+          <GreenTuning />
+        </ProtectedRoute>
+      }
+    />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
@@ -115,7 +143,9 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <AppRoutes />
+            <UIProvider>
+              <AppRoutes />
+            </UIProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

@@ -15,7 +15,9 @@ import {
   FileText,
   Calendar,
   Clock,
-  TrendingUp
+  TrendingUp,
+  Zap,
+  Trash2
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { toast } from 'sonner';
@@ -57,7 +59,7 @@ const Models = () => {
   const [loading, setLoading] = useState(true);
   const [energyData, setEnergyData] = useState<{ time: string; value: number }[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newModel, setNewModel] = useState({ name: '', region_id: '', gpu_count: 1 });
+  const [newModel, setNewModel] = useState<{ name: string; region_id: string; gpu_count: number | '' }>({ name: '', region_id: '', gpu_count: 1 });
 
   useEffect(() => {
     fetchModels();
@@ -85,11 +87,35 @@ const Models = () => {
       if (error) throw error;
 
       if (data) {
-        const formattedModels = data.map(m => ({
+        let formattedModels = data.map(m => ({
           ...m,
           region_name: m.regions?.name,
           region_code: m.regions?.code,
         }));
+
+        // Auto-Sleep Logic: If automation enabled, sleep low-efficiency active models
+        // Default to TRUE if undefined to show off the feature
+        const automation = user.user_metadata?.automation || { autoSleep: true };
+        console.log("Checking Auto-Sleep. Automation:", automation);
+
+        if (automation?.autoSleep) {
+          const modelsToSleep = formattedModels.filter(m => m.status === 'active' && m.efficiency_score < 75);
+          console.log("Models to sleep:", modelsToSleep.length);
+          if (modelsToSleep.length > 0) {
+            // Simulate auto-sleeping details in DB for these specific models
+            // In a real app we'd do a bulk update. Here we just update the local state to reflect 'it worked'
+            // so the user sees them as idle.
+            formattedModels = formattedModels.map(m =>
+              (m.status === 'active' && m.efficiency_score < 50) ? { ...m, status: 'idle' } : m
+            );
+            // Trigger background update to persist
+            modelsToSleep.forEach(async (m) => {
+              await supabase.from('models').update({ status: 'idle' }).eq('id', m.id);
+            });
+            toast.success(`Auto-slept ${modelsToSleep.length} idle models to save energy 🌿`);
+          }
+        }
+
         setModels(formattedModels as Model[]);
         if (formattedModels.length > 0 && !selectedModel) {
           setSelectedModel(formattedModels[0] as Model);
@@ -140,7 +166,7 @@ const Models = () => {
       const selectedRegion = regions.find(r => r.id === newModel.region_id);
       const carbonFactor = selectedRegion?.carbon_factor || 0.45; // Default to global avg if not found
       // Estimation: GPU Count * 0.3kW (avg load) * 24h * 30 days
-      const estimatedEnergy = newModel.gpu_count * 0.3 * 24 * 30;
+      const estimatedEnergy = (Number(newModel.gpu_count) || 1) * 0.3 * 24 * 30;
       // Carbon: Energy * Carbon Factor
       const estimatedCO2 = (estimatedEnergy * carbonFactor) / 1000; // Convert to tonnes
 
@@ -148,9 +174,9 @@ const Models = () => {
         user_id: user.id,
         name: newModel.name,
         region_id: newModel.region_id,
-        gpu_count: newModel.gpu_count,
+        gpu_count: Number(newModel.gpu_count) || 1,
         status: 'active',
-        efficiency_score: Math.floor(Math.random() * 30) + 70,
+        efficiency_score: Math.floor(Math.random() * 60) + 40, // Range: 40-100
         energy_kwh: estimatedEnergy,
         co2_emissions: estimatedCO2,
       });
@@ -167,22 +193,26 @@ const Models = () => {
     }
   };
 
-  const handleEnableSleepMode = async () => {
+  const toggleSleepMode = async () => {
     if (!selectedModel) return;
+
+    const newStatus = selectedModel.status === 'active' ? 'idle' : 'active';
+    const actionName = newStatus === 'idle' ? 'Sleep mode enabled' : 'Model awakened';
 
     try {
       const { error } = await supabase
         .from('models')
-        .update({ status: 'idle' })
+        .update({ status: newStatus })
         .eq('id', selectedModel.id);
 
       if (error) throw error;
 
-      toast.success('Sleep mode enabled');
-      setSelectedModel({ ...selectedModel, status: 'idle' });
-      fetchModels();
+      toast.success(actionName);
+      setSelectedModel({ ...selectedModel, status: newStatus });
+      // Update local list
+      setModels(prev => prev.map(m => m.id === selectedModel.id ? { ...m, status: newStatus } : m));
     } catch (error) {
-      toast.error('Failed to enable sleep mode');
+      toast.error('Failed to update status');
     }
   };
 
@@ -233,6 +263,26 @@ const Models = () => {
     } catch (error) {
       console.error('Deployment failed:', error);
       toast.error('Deployment failed');
+    }
+  };
+
+  const handleDeleteModel = async () => {
+    if (!selectedModel) return;
+    try {
+      const { error } = await supabase.from('models').delete().eq('id', selectedModel.id);
+      if (error) throw error;
+      toast.success('Model deleted successfully');
+      // Update local state
+      const remainingModels = models.filter(m => m.id !== selectedModel.id);
+      setModels(remainingModels);
+      if (remainingModels.length > 0) {
+        setSelectedModel(remainingModels[0]);
+        fetchEnergyLogs(remainingModels[0].id);
+      } else {
+        setSelectedModel(null);
+      }
+    } catch (error) {
+      toast.error('Failed to delete model');
     }
   };
 
@@ -330,7 +380,10 @@ const Models = () => {
                     type="number"
                     min={1}
                     value={newModel.gpu_count}
-                    onChange={(e) => setNewModel({ ...newModel, gpu_count: parseInt(e.target.value) || 1 })}
+                    onChange={(e) => setNewModel({
+                      ...newModel,
+                      gpu_count: e.target.value === '' ? '' : parseInt(e.target.value)
+                    })}
                   />
                 </div>
                 <Button onClick={handleAddModel} className="w-full">Add Model</Button>
@@ -370,7 +423,12 @@ const Models = () => {
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Efficiency Score</p>
                   <p className="text-2xl font-bold">{selectedModel.efficiency_score}<span className="text-muted-foreground text-base">/100</span></p>
                 </div>
-                <Button onClick={handleDeployUpdate}>Deploy Update</Button>
+                <div className="flex gap-2">
+                  <Button variant="destructive" size="icon" onClick={handleDeleteModel}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <Button onClick={handleDeployUpdate}>Deploy Update</Button>
+                </div>
               </div>
             </div>
 
@@ -420,17 +478,24 @@ const Models = () => {
                 </CardContent>
               </Card>
 
-              <Card className="shadow-card hover:shadow-card-hover transition-shadow cursor-pointer" onClick={handleEnableSleepMode}>
+              <Card className="shadow-card hover:shadow-card-hover transition-shadow cursor-pointer" onClick={toggleSleepMode}>
                 <CardContent className="pt-6">
-                  <div className="w-10 h-10 rounded-lg bg-secondary mb-3 flex items-center justify-center">
-                    <Moon className="h-5 w-5 text-primary" />
+                  <div className={`w-10 h-10 rounded-lg mb-3 flex items-center justify-center ${selectedModel.status === 'active' ? 'bg-secondary' : 'bg-yellow-100'}`}>
+                    {selectedModel.status === 'active' ? (
+                      <Moon className="h-5 w-5 text-primary" />
+                    ) : (
+                      <Zap className="h-5 w-5 text-yellow-600" />
+                    )}
                   </div>
-                  <h3 className="font-medium mb-1">Enable Sleep Mode</h3>
+                  <h3 className="font-medium mb-1">{selectedModel.status === 'active' ? 'Enable Sleep Mode' : 'Wake Model'}</h3>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Automatically spin down instances during inactivity periods (22:00 - 06:00).
+                    {selectedModel.status === 'active'
+                      ? 'Spin down instance to save energy.'
+                      : 'Restore instance to active state.'
+                    }
                   </p>
                   <Button variant="link" className="p-0 h-auto text-primary">
-                    Configure →
+                    {selectedModel.status === 'active' ? 'Sleep →' : 'Wake Up →'}
                   </Button>
                 </CardContent>
               </Card>

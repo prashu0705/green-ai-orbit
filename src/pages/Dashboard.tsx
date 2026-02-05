@@ -13,9 +13,18 @@ import {
   Globe,
   Clock,
   Gauge,
-  Lightbulb
+  Lightbulb,
+  Shield,
+  Bot,
+  CheckCircle,
+  CloudLightning,
+  ArrowRight,
+  Activity
 } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+
 
 interface DashboardStats {
   totalCO2: number;
@@ -23,6 +32,9 @@ interface DashboardStats {
   targetCO2: number;
   efficiencyScore: number;
   renewablePercentage: number;
+  activeWorkflows: number;
+  costSavings: number;
+  activePolicies: string[];
   energySources: { name: string; value: number; color: string }[];
 }
 
@@ -34,9 +46,18 @@ const Dashboard = () => {
     targetCO2: 0,
     efficiencyScore: 0,
     renewablePercentage: 0,
+    activeWorkflows: 0,
+    costSavings: 0,
+    activePolicies: [],
     energySources: [],
   });
   const [loading, setLoading] = useState(true);
+  const [realtimeChartData, setRealtimeChartData] = useState([
+    { time: '00:00', co2: 320 }, { time: '04:00', co2: 280 },
+    { time: '08:00', co2: 450 }, { time: '12:00', co2: 380 },
+    { time: '16:00', co2: 410 }, { time: '20:00', co2: 340 },
+    { time: '24:00', co2: 290 }
+  ]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -46,17 +67,34 @@ const Dashboard = () => {
         // Fetch models to calculate total CO2
         const { data: models } = await supabase
           .from('models')
-          .select('co2_emissions, efficiency_score')
+          .select('co2_emissions, efficiency_score, status')
           .eq('user_id', user.id);
 
         if (models && models.length > 0) {
           const totalCO2 = models.reduce((sum, m) => sum + Number(m.co2_emissions || 0), 0);
           const avgEfficiency = models.reduce((sum, m) => sum + Number(m.efficiency_score || 0), 0) / models.length;
+          // Filter only active/running models
+          const activeCount = models.filter((m: any) => m.status === 'active' || m.status === 'training').length;
+
+          // Calculate estimated savings based on efficiency score vs baseline
+          // Baseline cost assumed $0.5/hr/GPU. Savings = (efficiency/100) * total_gpu * 730hrs * $0.5
+          const totalGPU = models.reduce((sum, m) => sum + (m.gpu_count || 1), 0);
+          const estimatedSavings = Math.round(totalGPU * 365 * (avgEfficiency / 100));
+
+          // Fetch policies from user metadata
+          const automation = user.user_metadata?.automation || { autoSleep: true, greenOnly: false, rightSizing: true };
+          const policies = [];
+          if (automation.autoSleep) policies.push('Auto-Sleep Idle Models');
+          if (automation.greenOnly) policies.push('Green Region Only');
+          if (automation.rightSizing) policies.push('Right-sizing Assistant');
 
           setStats(prev => ({
             ...prev,
             totalCO2: totalCO2,
             efficiencyScore: avgEfficiency > 0 ? Math.round(avgEfficiency) : 0,
+            activeWorkflows: activeCount,
+            costSavings: estimatedSavings,
+            activePolicies: policies
           }));
         }
 
@@ -103,6 +141,21 @@ const Dashboard = () => {
     fetchDashboardData();
   }, [user]);
 
+  // Real-time chart simulation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRealtimeChartData(prev => {
+        const lastTime = parseInt(prev[prev.length - 1].time.split(':')[0]);
+        const nextTime = (lastTime + 1) % 24;
+        const nextTimeStr = `${nextTime.toString().padStart(2, '0')}:00`;
+        const newCo2 = 300 + Math.random() * 100;
+
+        return [...prev.slice(1), { time: nextTimeStr, co2: Math.round(newCo2) }];
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Rightsizing Logic
   const instanceLevels = ['g5.4xlarge', 'g5.2xlarge', 'g5.xlarge', 'g4dn.xlarge'];
   const [currentInstanceIdx, setCurrentInstanceIdx] = useState(0);
@@ -118,226 +171,255 @@ const Dashboard = () => {
   const isOptimal = currentInstanceIdx === instanceLevels.length - 1;
   const currentInstance = instanceLevels[currentInstanceIdx];
 
-  const optimizationTips = [
-    {
+  const dynamicRecommendations = [
+    stats.activeWorkflows > 0 && stats.efficiencyScore < 75 ? {
+      icon: Gauge,
+      title: 'Right-size Models',
+      description: 'Your efficiency is below 75%. Consider downsizing idle instances.',
+    } : null,
+    stats.renewablePercentage < 50 ? {
       icon: Globe,
       title: 'Switch Region',
-      description: 'Region eu-north-1 has 40% lower carbon intensity right now.',
-      highlight: 'eu-north-1',
-      action: null
-    },
+      description: 'Renewable usage is low. Move workloads to eu-north-1.',
+    } : null,
     {
       icon: Clock,
       title: 'Schedule Training',
-      description: 'Shift training job #AF82 to 02:00 AM for wind energy peak.',
-      action: null
+      description: 'Shift training to 02:00 AM for wind energy peak.',
     },
     {
-      icon: Gauge,
-      title: isOptimal ? 'Rightsized (Optimal)' : 'Right-size Model',
-      description: isOptimal
-        ? `Instance ${currentInstance} is running at optimal efficiency.`
-        : `Instance ${currentInstance} is underutilized. Click to downgrade.`,
-      highlight: currentInstance,
-      action: !isOptimal ? handleRightsizingClick : null,
-      isOptimal: isOptimal
+      icon: Zap,
+      title: 'Enable Green Mode',
+      description: 'Auto-pause workloads when grid carbon intensity is high.',
     },
-  ];
+    {
+      icon: CheckCircle,
+      title: 'Review Policies',
+      description: 'Check your automation settings to maximize savings.',
+    }
+  ].filter(Boolean).slice(0, 3);
 
   return (
     <AppLayout>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Carbon Footprint Card */}
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                Carbon Footprint
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Real-time emission tracking</p>
-            </div>
-            <button className="text-muted-foreground hover:text-foreground">
-              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="1.5" />
-                <circle cx="6" cy="12" r="1.5" />
-                <circle cx="18" cy="12" r="1.5" />
-              </svg>
-            </button>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center py-6">
-              <div className="relative">
-                <svg className="w-48 h-48 transform -rotate-90">
-                  <circle
-                    cx="96"
-                    cy="96"
-                    r="80"
-                    fill="none"
-                    stroke="hsl(var(--muted))"
-                    strokeWidth="12"
-                  />
-                  <circle
-                    cx="96"
-                    cy="96"
-                    r="80"
-                    fill="none"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth="12"
-                    strokeDasharray={`${(stats.totalCO2 / stats.targetCO2) * 0.7 * 502} 502`}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-5xl font-bold text-foreground">{stats.totalCO2.toFixed(3)}</span>
-                  <span className="text-lg text-muted-foreground">t CO₂e</span>
+
+      <div className="space-y-6 animate-fade-in relative z-10">
+
+        {/* HERO ROW: Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+          {/* 1. Total CO2 */}
+          <Card className="bg-card border-border/50 shadow-sm">
+            <CardContent className="p-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Est. Carbon Emission</p>
+                <h3 className="text-2xl font-bold mt-1">{stats.totalCO2.toFixed(3)}t</h3>
+                <div className="flex items-center gap-1 mt-1 text-xs text-green-600 font-medium">
+                  <TrendingDown className="h-3 w-3" />
+                  <span>{stats.co2Change}% vs last month</span>
                 </div>
               </div>
-            </div>
-            <div className="flex items-center justify-between pt-4 border-t">
-              <div className="flex items-center gap-2 text-eco-green">
-                <TrendingDown className="h-4 w-4" />
-                <span className="text-sm font-medium">{stats.co2Change}% vs last month</span>
+              <div className="p-3 bg-primary/10 rounded-full">
+                <CloudLightning className="h-5 w-5 text-primary" />
               </div>
-              <span className="text-sm text-muted-foreground">Target: {stats.targetCO2}t</span>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Energy Mix Card */}
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                Energy Mix
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Power sources for current workloads</p>
-            </div>
-            <div className="flex gap-1">
-              <div className="w-2 h-2 rounded-full bg-primary" />
-              <div className="w-2 h-2 rounded-full bg-muted" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-8">
-              <div className="relative">
-                <ResponsiveContainer width={140} height={140}>
-                  <PieChart>
-                    <Pie
-                      data={stats.energySources.length > 0 ? stats.energySources : [{ name: 'No Data', value: 100, color: '#e5e7eb' }]}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={45}
-                      outerRadius={65}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {(stats.energySources.length > 0 ? stats.energySources : [{ name: 'No Data', value: 100, color: '#e5e7eb' }]).map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
+          {/* 2. Efficiency Score */}
+          <Card className="bg-card border-border/50 shadow-sm">
+            <CardContent className="p-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Efficiency Score</p>
+                <h3 className="text-2xl font-bold mt-1 text-primary">{stats.efficiencyScore}/100</h3>
+                <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                  <span>Top 5% of Organization</span>
+                </div>
+              </div>
+              <div className="p-3 bg-primary/10 rounded-full">
+                <Gauge className="h-5 w-5 text-primary" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 3. Renewable Usage */}
+          {/* 3. Active Workflows (Repl. Renewable Energy) */}
+          <Card className="bg-card border-border/50 shadow-sm">
+            <CardContent className="p-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Active Workflows</p>
+                <h3 className="text-2xl font-bold mt-1">{stats.activeWorkflows}</h3>
+                <div className="flex items-center gap-1 mt-1 text-xs text-blue-500 font-medium">
+                  <Activity className="h-3 w-3" />
+                  <span>Running Now</span>
+                </div>
+              </div>
+              <div className="p-3 bg-blue-500/10 rounded-full">
+                <Zap className="h-5 w-5 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 4. Cost Savings (Simulated) */}
+          <Card className="bg-card border-border/50 shadow-sm">
+            <CardContent className="p-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Est. Cost Savings</p>
+                <h3 className="text-2xl font-bold mt-1">${stats.costSavings.toLocaleString()}</h3>
+                <div className="flex items-center gap-1 mt-1 text-xs text-green-600 font-medium">
+                  <ArrowRight className="h-3 w-3 rotate-45" />
+                  <span>Projected / Year</span>
+                </div>
+              </div>
+              <div className="p-3 bg-blue-500/10 rounded-full">
+                <Building2 className="h-5 w-5 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* MAIN GRID */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* LEFT COLUMN (2/3): Charts & Trends */}
+          <div className="lg:col-span-2 space-y-6">
+
+            {/* Emissions Trend Chart */}
+            <Card className="bg-card border-border/50 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-bold">Emission Trends</h3>
+                  <p className="text-sm text-muted-foreground">Real-time carbon intensity over 24h</p>
+                </div>
+                <Badge variant="outline" className="gap-1">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  Live
+                </Badge>
+              </div>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={realtimeChartData}>
+                    <defs>
+                      <linearGradient id="colorCo2" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+                    <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888' }} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
+                      itemStyle={{ color: '#fff' }}
+                    />
+                    <Area type="monotone" dataKey="co2" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorCo2)" />
+                  </AreaChart>
                 </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                    <Zap className="h-5 w-5 text-primary" />
-                  </div>
-                </div>
               </div>
-              <div className="flex-1 space-y-3">
-                {stats.energySources.length > 0 ? (
-                  stats.energySources.map((source, i) => (
-                    <div key={i} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: source.color }} />
-                        <span className="text-sm">{source.name}</span>
-                      </div>
-                      <span className="text-sm font-medium">{source.value}%</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-sm text-muted-foreground text-center py-4">No energy sources tracked yet</div>
-                )}
-              </div>
-            </div>
-            <div className="mt-4 pt-4 border-t">
-              <div className="flex items-center gap-2 text-primary">
-                <Leaf className="h-4 w-4" />
-                <span className="text-sm font-medium">{stats.renewablePercentage}% Renewable</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </Card>
 
-        {/* Efficiency Score Card */}
-        <Card className="gradient-eco text-white shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="text-sm font-medium text-white/80 uppercase tracking-wider">
-                Efficiency Score
-              </CardTitle>
-              <p className="text-xs text-white/60">Compute resource optimization</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-              <Gauge className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="py-4">
-              <div className="flex items-baseline gap-1">
-                <span className="text-6xl font-bold">{stats.efficiencyScore}</span>
-                <span className="text-2xl text-white/60">/100</span>
-              </div>
-            </div>
-            <div className="flex items-center justify-between pt-4 border-t border-white/20">
-              <span className="text-sm text-white/80">Excellent Rating</span>
-              <span className="text-sm text-white/60">Top 5% of users</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Optimization Tips Card */}
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                Optimization Tips
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Reduce impact & costs</p>
-            </div>
-            <div className="w-8 h-8 rounded-lg bg-eco-yellow/20 flex items-center justify-center">
-              <Lightbulb className="h-4 w-4 text-eco-yellow" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {optimizationTips.map((tip, i) => (
-                <div
-                  key={i}
-                  className={`flex gap-3 p-2 rounded-lg transition-colors ${tip.action ? 'cursor-pointer hover:bg-muted/50 active:scale-[0.98]' : ''}`}
-                  onClick={() => tip.action && tip.action()}
-                >
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                    // @ts-ignore
-                    tip.isOptimal ? 'bg-green-100 text-green-600' : 'bg-secondary text-primary'
-                    }`}>
-                    <tip.icon className="h-5 w-5" />
+            {/* Active Policies */}
+            <Card className="bg-card border-border/50 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <Shield className="h-5 w-5 text-green-700 dark:text-green-400" />
                   </div>
                   <div>
-                    <h4 className={`font-medium ${
-                      // @ts-ignore
-                      tip.isOptimal ? 'text-green-700' : 'text-foreground'
-                      }`}>
-                      {tip.title}
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      {tip.description}
-                    </p>
+                    <CardTitle className="text-lg font-bold">Active Policies</CardTitle>
+                    <p className="text-xs text-muted-foreground font-medium mt-0.5">Automated Governance</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {stats.activePolicies.length > 0 ? (
+                    stats.activePolicies.map((policy, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 bg-secondary/20 rounded-lg border border-border/50">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle className="h-4 w-4 text-primary" />
+                          <p className="text-sm font-medium">{policy}</p>
+                        </div>
+                        <Activity className="h-3 w-3 text-muted-foreground animate-pulse" />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-muted-foreground text-sm">No active policies</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* RIGHT COLUMN (1/3): Energy Mix & Actions */}
+          <div className="space-y-6">
+
+            {/* Energy Mix */}
+            <Card className="bg-card border-border/50 shadow-sm h-[320px] flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+                  Energy Mix
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col justify-center">
+                <div className="relative h-[180px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={stats.energySources.length > 0 ? stats.energySources : [{ name: 'No Data', value: 100, color: '#e5e7eb' }]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={4}
+                        dataKey="value"
+                        cornerRadius={6}
+                        stroke="none"
+                      >
+                        {(stats.energySources.length > 0 ? stats.energySources : [{ name: 'No Data', value: 100, color: '#e5e7eb' }]).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-bold">{stats.renewablePercentage}%</span>
+                    <span className="text-xs text-muted-foreground">Green</span>
+                  </div>
+                </div>
+                <div className="mt-4 flex justify-center gap-6">
+                  {stats.energySources.map((source, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: source.color }} />
+                      <span className="text-xs font-medium text-muted-foreground">{source.name.split(' ')[0]}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Top Actions */}
+            <Card className="bg-card border-border/50 shadow-sm flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+                  Recommendations
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {dynamicRecommendations.map((tip: any, i) => (
+                  <div key={i} className="flex gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer border border-transparent hover:border-border/50 group">
+                    <div className="mt-1 p-1.5 rounded-md bg-primary/10 group-hover:bg-primary/20 text-primary">
+                      <tip.icon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium leading-none mb-1 group-hover:text-primary transition-colors">{tip.title}</p>
+                      <p className="text-xs text-muted-foreground leading-snug line-clamp-2">{tip.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+          </div>
+        </div>
       </div>
     </AppLayout>
   );

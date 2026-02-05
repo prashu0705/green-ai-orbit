@@ -95,7 +95,12 @@ const Scheduler = () => {
 
 
   const generateForecastData = (regionCode: string) => {
-    const days = ['TODAY', 'FRI 28', 'SAT 29', 'SUN 30', 'MON 01'];
+    const days = Array.from({ length: 5 }, (_, i) => {
+      if (i === 0) return 'TODAY';
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      return date.toLocaleDateString('en-US', { weekday: 'short', day: '2-digit' }).toUpperCase();
+    });
     const hours = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
 
     // Normalize code for comparison

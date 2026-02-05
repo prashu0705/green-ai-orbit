@@ -1,9 +1,10 @@
 import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Leaf, LayoutDashboard, Cpu, Award, FileText, Calendar, LogOut, User, Settings, GitCompare } from 'lucide-react';
+import { Leaf, LayoutDashboard, Cpu, Award, FileText, Calendar, LogOut, User, Settings, GitCompare, Coins, ShoppingBag, Sliders } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -12,6 +13,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import NotificationCenter from '@/components/NotificationCenter';
+// import EcoAssistant from '@/components/EcoAssistant'; // Replaced by EcoOrbitMenu
+import { EcoOrbitMenu } from '@/components/EcoOrbitMenu';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -23,6 +27,9 @@ const navItems = [
   { path: '/models', label: 'Models', icon: Cpu },
   { path: '/comparison', label: 'Compare', icon: GitCompare },
   { path: '/certificates', label: 'Certificates', icon: Award },
+  { path: '/finance', label: 'Finance', icon: Coins },
+  { path: '/marketplace', label: 'Marketplace', icon: ShoppingBag },
+  { path: '/tuning', label: 'Tuning Studio', icon: Sliders },
   { path: '/reports', label: 'Reports', icon: FileText },
 ];
 
@@ -30,6 +37,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const { user, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
 
   const handleSignOut = async () => {
     await signOut();
@@ -65,58 +73,62 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
                 >
                   {item.label}
                 </Link>
               );
             })}
+
           </nav>
+
+
 
           {/* Theme Toggle & User Menu */}
           <div className="flex items-center gap-2">
+            <NotificationCenter />
             <ThemeToggle />
             <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-3 h-auto py-2">
-                <div className="hidden md:block text-right">
-                  <p className="text-sm font-medium">{user?.user_metadata?.full_name || 'User'}</p>
-                  <p className="text-xs text-muted-foreground">Lead Engineer</p>
-                </div>
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={user?.user_metadata?.avatar_url} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {getInitials()}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <User className="mr-2 h-4 w-4" />
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-3 h-auto py-2">
+                  <div className="hidden md:block text-right">
+                    <p className="text-sm font-medium">{user?.user_metadata?.full_name || 'User'}</p>
+                    <p className="text-xs text-muted-foreground">{user?.user_metadata?.job_title || 'Lead Engineer'}</p>
+                  </div>
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={user?.user_metadata?.avatar_url} />
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                      {getInitials()}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="p-6">{children}</main>
+      <EcoOrbitMenu />
     </div>
   );
 };

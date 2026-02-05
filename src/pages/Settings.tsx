@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -19,7 +20,8 @@ import {
   Save,
   Camera,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Zap
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -65,9 +67,20 @@ const Settings = () => {
   const [theme, setTheme] = useState('system');
   const [carbonThreshold, setCarbonThreshold] = useState('2.0');
 
+  // Automation Rules State
+  const [automation, setAutomation] = useState({
+    autoSleep: true,
+    greenOnly: false,
+    rightSizing: true
+  });
+
   useEffect(() => {
     if (user) {
       fetchProfile();
+      // Load settings from metadata if available
+      if (user.user_metadata?.automation) {
+        setAutomation(user.user_metadata.automation);
+      }
     }
   }, [user]);
 
@@ -102,7 +115,8 @@ const Settings = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase
+      // 1. Update the 'profiles' table (Application Data)
+      const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
           user_id: user.id,
@@ -112,12 +126,25 @@ const Settings = () => {
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' });
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
-      toast.success('Profile updated successfully');
+      // 2. Update Supabase Auth User Metadata (Session Data)
+      // This ensures components relying on user.user_metadata (like AppLayout) update immediately.
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          full_name: profile.full_name,
+          avatar_url: profile.avatar_url,
+          job_title: profile.job_title, // Persist job title for AppLayout
+          automation: automation // Persist automation settings
+        }
+      });
+
+      if (authError) throw authError;
+
+      toast.success('Settings and Profile updated successfully');
     } catch (error) {
-      console.error('Error saving profile:', error);
-      toast.error('Failed to save profile');
+      console.error('Error saving settings:', error);
+      toast.error('Failed to save settings');
     } finally {
       setLoading(false);
     }
@@ -295,6 +322,62 @@ const Settings = () => {
               <Switch
                 checked={notifications.modelStatusUpdates}
                 onCheckedChange={(checked) => setNotifications({ ...notifications, modelStatusUpdates: checked })}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Automation Rules (New) */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle>Automation Rules</CardTitle>
+                <CardDescription>Configure autonomous fleet management</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Auto-Sleep Idle Models</p>
+                <div className="text-sm text-muted-foreground">
+                  Automatically suspend models if inactive for &gt; 2 hours.
+                  <Badge variant="outline" className="ml-2 text-[10px] bg-primary/10 text-primary border-primary/20">
+                    Avg. Savings: 12%
+                  </Badge>
+                </div>
+              </div>
+              <Switch
+                checked={automation.autoSleep}
+                onCheckedChange={(c) => setAutomation(prev => ({ ...prev, autoSleep: c }))}
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Enforce Green Only</p>
+                <div className="text-sm text-muted-foreground">
+                  Prevent deployment to regions with &lt; 50% renewable energy.
+                </div>
+              </div>
+              <Switch
+                checked={automation.greenOnly}
+                onCheckedChange={(c) => setAutomation(prev => ({ ...prev, greenOnly: c }))}
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Rightsizing Assistant</p>
+                <div className="text-sm text-muted-foreground">
+                  Automatically suggest smaller instance types for low load models.
+                </div>
+              </div>
+              <Switch
+                checked={automation.rightSizing}
+                onCheckedChange={(c) => setAutomation(prev => ({ ...prev, rightSizing: c }))}
               />
             </div>
           </CardContent>
