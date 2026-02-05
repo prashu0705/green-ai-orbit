@@ -17,7 +17,10 @@ import {
   Clock,
   TrendingUp,
   Zap,
-  Trash2
+  Trash2,
+  Check,
+  BarChart2,
+  Users
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { toast } from 'sonner';
@@ -463,20 +466,41 @@ const Models = () => {
 
             {/* Action Cards */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-              <Card className="shadow-card hover:shadow-card-hover transition-shadow cursor-pointer" onClick={handleRightsize}>
-                <CardContent className="pt-6">
-                  <div className="w-10 h-10 rounded-lg bg-secondary mb-3 flex items-center justify-center">
-                    <Gauge className="h-5 w-5 text-primary" />
-                  </div>
-                  <h3 className="font-medium mb-1">Right-size Model</h3>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Optimization available. Reduce instance size to <span className="text-primary">g4dn.xlarge</span> to save 15%.
-                  </p>
-                  <Button variant="link" className="p-0 h-auto text-primary">
-                    Review Changes →
-                  </Button>
-                </CardContent>
-              </Card>
+              {selectedModel.status === 'active' && selectedModel.efficiency_score < 75 ? (
+                <Card className="shadow-card hover:shadow-card-hover transition-shadow cursor-pointer border-l-4 border-l-yellow-500 bg-yellow-50/50" onClick={handleRightsize}>
+                  <CardContent className="pt-6">
+                    <div className="w-10 h-10 rounded-lg bg-yellow-100 mb-3 flex items-center justify-center">
+                      <Gauge className="h-5 w-5 text-yellow-700" />
+                    </div>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium mb-1 text-yellow-900">Right-size Opportunity</h3>
+                        <p className="text-sm text-yellow-800/80 mb-3">
+                          Utilization is low ({Math.floor(Math.random() * 20 + 10)}%). Reduce size to <span className="font-bold underline">g4dn.xlarge</span> to save 30%.
+                        </p>
+                      </div>
+                    </div>
+                    <Button variant="link" className="p-0 h-auto text-yellow-900 font-bold">
+                      Apply Recommendation →
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="shadow-card opacity-80 cursor-not-allowed bg-secondary/20">
+                  <CardContent className="pt-6">
+                    <div className="w-10 h-10 rounded-lg bg-secondary mb-3 flex items-center justify-center">
+                      <Gauge className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <h3 className="font-medium mb-1 text-muted-foreground">Right-sizing</h3>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      This model is correctly sized for its current workload. No actions needed.
+                    </p>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="text-muted-foreground text-xs"><Check className="w-3 h-3 mr-1" /> Optimized</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               <Card className="shadow-card hover:shadow-card-hover transition-shadow cursor-pointer" onClick={toggleSleepMode}>
                 <CardContent className="pt-6">

@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { generatePerformanceReportPDF } from '@/lib/pdfGenerator';
 
@@ -457,16 +459,93 @@ const Reports = () => {
           </Card>
         </div>
 
-        {/* Export Buttons */}
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={handleExportCSV}>
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
-          <Button onClick={handleExportPDF}>
-            <Download className="h-4 w-4 mr-2" />
-            Export PDF
-          </Button>
+        {/* Governance & Education Hub */}
+        <div>
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Award className="h-5 w-5 text-primary" />
+            Governance & Education Hub
+          </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            {/* Team Certification Status */}
+            <Card className="shadow-card lg:col-span-1">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                  Team Certification Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="font-medium">Data Science Team</span>
+                    <span className="text-primary font-bold">85%</span>
+                  </div>
+                  <Progress value={85} className="h-2" />
+                  <p className="text-xs text-muted-foreground mt-1">17/20 Certified Green AI Practitioners</p>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="font-medium">ML Engineering</span>
+                    <span className="text-muted-foreground">60%</span>
+                  </div>
+                  <Progress value={60} className="h-2" />
+                  <p className="text-xs text-muted-foreground mt-1">12/20 Certified</p>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="font-medium">Product Management</span>
+                    <span className="text-muted-foreground">40%</span>
+                  </div>
+                  <Progress value={40} className="h-2" />
+                  <p className="text-xs text-muted-foreground mt-1">Waiting for 'Carbon ROI' module</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recommended Training Modules */}
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="bg-primary/5 border-primary/20 hover:border-primary/50 transition-colors cursor-pointer group">
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">Essential</Badge>
+                    <span className="text-xs text-muted-foreground">45 mins</span>
+                  </div>
+                  <h3 className="font-bold text-lg mb-2 group-hover:text-primary transition-colors">Green AI Fundamentals</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Learn the core principles of carbon-aware computing and how to measure model efficiency.
+                  </p>
+                  <Button size="sm" className="w-full">Start Module</Button>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer group">
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <Badge variant="secondary">Advanced</Badge>
+                    <span className="text-xs text-muted-foreground">90 mins</span>
+                  </div>
+                  <h3 className="font-bold text-lg mb-2 group-hover:text-primary transition-colors">Low-Rank Adaptation (LoRA)</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Technical deep dive into fine-tuning LLMs with 98% less energy consumption.
+                  </p>
+                  <Button size="sm" variant="outline" className="w-full">Start Module</Button>
+                </CardContent>
+              </Card>
+            </div>
+
+          </div>
+
+          {/* Export Buttons */}
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={handleExportCSV}>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button onClick={handleExportPDF}>
+              <Download className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
+          </div>
         </div>
       </div>
     </AppLayout>
